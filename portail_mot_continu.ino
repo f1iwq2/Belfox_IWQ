@@ -1,9 +1,12 @@
-// Version 03 08 2022 18h00
+// *********************************************************
+// Version 03 09 2022 16h00 
+// Pilotage PWM de moteurs à courant continu
 // pour ARDUINO NANO - F1IWQ
 // pour la compilation et le téléchargement, sélectionner arduino NANO sinon le téléchargement ne fonctionnera pas.
 // La fréquence PWM est par défaut de 976,56 Hz. Elle utilise les broches D5 et D6 et le pilotage PWM utilise le timer 0.
 // Attention la fonction delay() utilise le timer 0 !
 // Ne pas utiliser Tempo() dans la fonction traitement() ni dans les fonctions à l'intérieur à savoir recul() et avance() mais delay.
+// pos fin=7300
 // *********************************************************
 
 // 1 tour programme principal (main) dure en moyenne 800 à 850µs
@@ -28,8 +31,8 @@
 #define ligne_pos        3
 #define ligne_erreur     7
 
-#define Tempo_sortie_menu 20 // 20 s
-// organisation des Y lignes de l'écran MENU (1)
+#define Tempo_sortie_menu 30 // 30 s
+// organisation des lignes Y de l'écran MENU (1)
 #define premiere_ligneM  1
 #define derniere_ligneM  9
 #define offset_M         2  // début de l'affichage en Y=2
@@ -83,26 +86,27 @@ const String ligne_menu_S[]={"Apprentissage",
 #define   RIS         7     // A7 image courant H
 
 // vitesses lente et rapide (maxi 255)
-#define   lent      100
+#define   lent      150
 #define   rapide    255
 
-volatile int  valeur,compsec,Compt10Sec,secondes,nombre,i,dist_decP,dist_dec;
+volatile int  compsec,Compt10Sec,secondes,nombre,i,dist_decP,dist_dec;
 volatile int  Temps_boutonM,Temps_boutonP,val_tempo,ligne_menu,intensite,intensite_max ;
 volatile int  Temps_boutonE,AncErreur,Seq,Temps_boutonEch,pos_ferme,Nbip;
-volatile int  Tempo_menu,derniere_ligne,premiere_ligne,PageMenu,cpt_mvt,attendre,timer;
-volatile int  tempo_affT,Nbit,Protocole,Temps_bornier,Tps_fonctionnement,Tps_fonc_P;
+volatile int  Tempo_menu,derniere_ligne,premiere_ligne,PageMenu,cpt_mvt,timer;
+volatile int  tempo_affT,Temps_bornier,Tps_fonctionnement,Tps_fonc_P;
 volatile int  decale,offset,cpt_mvt_10,courantRIS,courantLIS,s_consigne,courantLIS_arr,courantRIS_arr;
 volatile int  Tps_accP,Tps_acc,Tps_dec,Tps_decP,pos,consigne,cons_loc,increment,anc_consigne;
-volatile int  tempo_bip,nombre_bip,Max_bip,compt_seq,ADC_p,tps_marche;
-volatile byte Sens_Ouv,Sens_Ouv_P,PPS,PPS_P,octet,seq_apprend;
+volatile int  tempo_bip,nombre_bip,Max_bip,compt_seq,ADC_p,tps_marche,msg_fdc;
+         int  _intensite_max,autorepeat,delayautorepeat; 
+volatile byte Sens_Ouv,Sens_Ouv_P,PPS,PPS_P;
 volatile byte bip,HauteurBuz,erreur;
-volatile bool demande_arret,Fc_ferme,Fc_ouvert,avance,recul,Mem_Fm_F,Mem_Fm_O ; 
+volatile bool demande_arret,Fc_ferme,Fc_ouvert,avance,recul ; 
 volatile bool Aferme,Aouvert,simu,recul_cours,avance_cours,MemRecul,MemAvance ;
 volatile bool dem_inc_boutonM,dem_inc_boutonP,Cellule_ok,ACellule,menu,Anc_BpP,Anc_BpM,Anc_BpE ;
 volatile bool simuMenu,Simu8,Simu2,Enter,Anc_BpEch,Etat_BpP,Etat_BpM,Msg_cell_ok;
-volatile bool dem_inc_boutonE,Etat_BpE,Etat_BpEch,dem_cpt_mvt,curseur,Mem_Fd_F,Mem_Fd_O;
-volatile bool Fm_M,Fm_E,Fm_P,Fm_Ech,Aff_ES,dem_inc_boutonEch,Fm_O,Fm_F,Fd_O,Fd_F,Dem_Telecom;
-volatile bool Dem_Liste_Tel,arrete,Cde_bornier,Fm_Bornier,Abornier,demande_arr_imm;
+volatile bool dem_inc_boutonE,Etat_BpE,Etat_BpEch,curseur;
+volatile bool Fm_M,Fm_E,Fm_P,Fm_Ech,dem_inc_boutonEch,Fm_O,Fm_F,Fd_O,Fd_F;
+volatile bool arrete,Cde_bornier,Fm_Bornier,Abornier,demande_arr_imm;
 volatile bool demande_recul_imm,FmBornier,Man_Bornier,litRIS,radioR,radioL,dem_aff_pos;
 volatile bool Msg_cell_nok,trajet_long,Anc_Fus,Etat_Fus,marche_buz,AncR,AncL,FaireApprend;
 volatile long iteration,poslong,tps_erreur;
@@ -110,8 +114,6 @@ char          inByte ;
 String        s,chaine,vide,chaineEnCours; 
 
 SSD1306AsciiWire oled;
-
-
 
 // interruption timer toutes les 217,01388 micro secondes (2,017 ms) (460 Hz)
 // compteur à 460  = génère 1 seconde
@@ -126,39 +128,33 @@ void Interrupt_T1()
     Aouvert=Fc_ouvert;
     ACellule=Cellule_ok;
     
-    Fc_ferme=!digitalRead(FcFerme);      // LOW=Fdc enfoncé donc on inverse 
-    Fc_ouvert=!digitalRead(FcOuvert);    //  
+    Fc_ferme=digitalRead(FcFerme);      // les Fdc ouvert et fermé doivent être électriquement à 1 au repos.
+    Fc_ouvert=digitalRead(FcOuvert);    //  
     Cellule_ok=!digitalRead(Cellule);   // LOW=Cellule ok donc on inverse
 
     // fronts montants des Fdc (acostage)
-    Fm_F=!Aferme & Fc_ferme;
-    Fm_O=!Aouvert & Fc_ouvert;
+    Fm_F=(!Aferme) & Fc_ferme;
+    Fm_O=(!Aouvert) & Fc_ouvert;
 
     if (!ACellule & Cellule_ok) Msg_cell_ok=HIGH;
     if (ACellule & !Cellule_ok) Msg_cell_nok=HIGH;  
-    
   }
   
   if ((!Anc_Fus) & (Etat_Fus)) erreur=3;
   if ((Anc_Fus) & (!Etat_Fus)) erreur=0;
-  
  
   
   // Fronts descendants des Fdc (on les quitte)
-  Fd_F=Aferme & !Fc_ferme;
-  Fd_O=Aouvert & !Fc_ouvert; 
-
-  // mémorisation des fronts des fdc pour les utiliser dans le prog princ
-  if (Fm_F) Mem_Fm_F=HIGH;
-  if (Fm_O) Mem_Fm_O=HIGH;
-  if (Fd_F) Mem_Fd_F=HIGH;
-  if (Fd_O) Mem_Fd_O=HIGH;
+  Fd_F=Aferme & (!Fc_ferme);
+  Fd_O=Aouvert & (!Fc_ouvert); 
 
   // acostage du fdc fermé : mémoriser la position si on a démarré depuis le fdc_recul sans arret
-  if (Fm_F & avance & trajet_long)
+  if (Fm_F & avance) // & trajet_long)
   {
     trajet_long=LOW;
     pos_ferme=pos;
+    //proc_arret_immediat();
+    //Serial.println(pos_ferme);
   }
 
   if (marche_buz)
@@ -172,17 +168,17 @@ void Interrupt_T1()
   ++Compt10Sec;    // compteur 1/10eme de seconde
 
   // compteurs appui boutons (en temps timer 217µs)
-  if (dem_inc_boutonM) ++Temps_boutonM;
-  if (dem_inc_boutonP) ++Temps_boutonP;
-  if (dem_inc_boutonE) ++Temps_boutonE;
-  if (dem_inc_boutonEch) ++Temps_boutonEch;
+  if ((dem_inc_boutonM) & (Temps_boutonM<32000)) ++Temps_boutonM;
+  if ((dem_inc_boutonP) & (Temps_boutonP<32000)) ++Temps_boutonP;
+  if ((dem_inc_boutonE) & (Temps_boutonE<32000)) ++Temps_boutonE;
+  if ((dem_inc_boutonEch) & (Temps_boutonEch<32000)) ++Temps_boutonEch;
 
   // séquenceur 1/10 seconde---------------
   if (Compt10Sec>=460)
   {
     Compt10Sec=0;
     ++compsec;       // compteur 1 seconde
-    if (dem_cpt_mvt) ++cpt_mvt_10; else cpt_mvt_10=0;  // compteur mvt en 1/10 de s
+    if (avance_cours | recul_cours) ++cpt_mvt_10; else cpt_mvt_10=0;  // compteur mvt en 1/10 de s
         
     if (val_tempo!=0) --val_tempo;
     if (tempo_bip!=0) ++tempo_bip;
@@ -231,13 +227,13 @@ void Interrupt_T1()
         Max_bip=0;
       }
       if (tempo_affT!=0) --tempo_affT;
-      if (dem_cpt_mvt) ++cpt_mvt;
+      if (avance_cours | recul_cours) ++cpt_mvt;
       if (Tempo_menu>0) {++Tempo_menu;} 
       if (tps_marche>0) ++tps_marche;
       if (tps_marche==30) digitalWrite(infomarche,LOW);
     } 
 
-    // intégration position: la distance est la vitesse (cons_loc).
+    // intégration position: la distance est la vitesse (cons_loc) mesuré tous les 1/10ème de s  ------------------
     if (avance_cours)
     {
       poslong=poslong+cons_loc;   // longint
@@ -250,7 +246,7 @@ void Interrupt_T1()
     }
   }
   
-  // filtrage commande
+  // filtrage commande---------------------------------------------------------
   Abornier=Cde_bornier;
   if ((digitalRead(Commande))==LOW) {Temps_bornier=60;Cde_bornier=HIGH;}
   if (Temps_bornier>0) 
@@ -262,9 +258,9 @@ void Interrupt_T1()
   if (Fm_Bornier) Man_Bornier=!menu;
 
   // raz de la position si FDC ouvert (origine)
-  if (Fc_ouvert) pos=0;
+  if (Fc_ouvert) {pos=0;poslong=0;}
   
-  // lecture courant pont L et R (LIS et RIS)
+  // lecture courant pont L et R (LIS et RIS) ---------------------------------
   if (bit_is_clear(ADCSRA,ADSC))  // échantillon prêt ?
   {  
     // lire la valeur analogique ; elle peut être faible ...
@@ -280,15 +276,17 @@ void Interrupt_T1()
       if (arrete) courantLIS_arr=ADC_p;  // courant LIS à l'arret (offset)
     }
    
-    if ( ((avance_cours) & (Sens_Ouv==1)) | ((recul_cours)  & (Sens_Ouv==0)) )  
+    if ( ((avance_cours) & (Sens_Ouv==1)) | ((recul_cours) & (Sens_Ouv==0)) )  
     {
       intensite=courantLIS-courantLIS_arr;
-      if (intensite>1000) {erreur=1;demande_arr_imm=HIGH;}
+      if (intensite>=intensite_max) {erreur=1;demande_arr_imm=HIGH;}
+      else erreur=0;
     }
     if ( ((recul_cours)  & (Sens_Ouv==1)) | ((avance_cours) & (Sens_Ouv==0)) )
     {
       intensite=courantRIS-courantRIS_arr;
-      if (intensite>1000) {erreur=1;demande_arr_imm=HIGH;}
+      if (intensite>=intensite_max) {erreur=2;demande_arr_imm=HIGH;}
+      else erreur=0;
     }
    
     litRIS=!litRIS;
@@ -326,28 +324,32 @@ void ecrit_eprom()
   EEPROM.write(6,Tps_acc);
   EEPROM.write(7,Tps_dec);
   EEPROM.write(8,intensite_max >>8);
-  EEPROM.write(9,intensite_max & 0xFF);  
+  EEPROM.write(9,intensite_max & 0xFF); 
+  EEPROM.write(10,pos_ferme >>8);
+  EEPROM.write(11,pos_ferme & 0xFF); 
 }
 
 void lit_eprom()
 {
    Sens_Ouv=EEPROM.read(0);           // sens de l'ouverture
-   PPS=EEPROM.read(1);                // mode de fonctionnement : Avance / Arret / Recul  (sinon Avance / Recul)
+   PPS=EEPROM.read(1);                // mode de fonctionnement : Avance / Arret / Recul  (sinon Avance / Recul) 
    Tps_fonctionnement=EEPROM.read(3); // temps maximal de fonctionnement
-   dist_dec=EEPROM.read(4)*256+EEPROM.read(5);    // paramètre sur 2 octets (int)
+   dist_dec=EEPROM.read(4)*256+EEPROM.read(5);    // paramètre sur 2 octets (int) au moins 500
    Tps_acc=EEPROM.read(6);           
    Tps_dec=EEPROM.read(7);
    intensite_max=EEPROM.read(8)*256+EEPROM.read(9);
+   pos_ferme=EEPROM.read(10)*256+EEPROM.read(11);
+   // intensite_max=1500;  // &&
    
    if ((Sens_Ouv>1) | (Sens_Ouv<0)) Sens_Ouv=1;
    if ((PPS>1) | (PPS<0)) PPS=1;
    if ((Tps_fonctionnement>99) | (Tps_fonctionnement<1)) Tps_fonctionnement=99;
-   if ((dist_dec>2000) | (dist_dec<100)) dist_dec=1000;
+   if ((dist_dec>3000) | (dist_dec<500)) dist_dec=500;  
   
    if ((Tps_acc>30) | (Tps_acc<2)) Tps_acc=10;
    if ((Tps_dec>30) | (Tps_dec<2)) Tps_dec=10;
 
-   if (intensite_max<0) intensite_max=500;
+   if (intensite_max<=0) intensite_max=500;
         
    Serial.print(F("Sens ouverture="));Serial.println(Sens_Ouv);
    Serial.print(F("Sequentiel="));Serial.println(PPS);
@@ -356,6 +358,7 @@ void lit_eprom()
    Serial.print(F("Tps acc="));Serial.println(Tps_acc);
    Serial.print(F("Tps dec="));Serial.println(Tps_dec);
    Serial.print(F("Courant Max="));Serial.println(intensite_max);
+   Serial.print(F("Position Fdc ferme="));Serial.println(pos_ferme);
 }
 
 // Arrêt moteur sur pente de décélération
@@ -372,6 +375,7 @@ void arret()
   }
               
   i=0;
+  // pente de décélération
   do
   {
     ++i;
@@ -390,22 +394,18 @@ void arret()
     }        
     delay(100);
   }
-  while ((!Fc_ouvert) & (!Fc_ferme) & (i<Tps_acc) & (cons_loc>0)) ;  // sort si Fc_ferme=HIGH ou Fc_ouvert=HIGH ou i>=Tps_act  &&&
-
-
+  while ((!Fc_ouvert) & (!Fc_ferme) & (i<Tps_acc) & (cons_loc>0)) ;  // sort si Fc_ferme=HIGH ou Fc_ouvert=HIGH ou i>=Tps_act  
+  cons_loc=0;
   analogWrite(RPWM,0);
   analogWrite(LPWM,0);
-  noTone(buzzer);
   tps_marche=1;   // lance la tempo de retombée du relais K1
   demande_arret=LOW;      // raz flag demande arret
   avance_cours=LOW;
   recul_cours=LOW;
-  dem_cpt_mvt=LOW;
   arrete=HIGH;
   trajet_long=LOW;
   cpt_mvt=0;
   cpt_mvt_10=0;
-  seq_apprend=0;
   anc_consigne=0;
   consigne=0;
   dem_aff_pos=HIGH;
@@ -421,7 +421,6 @@ void setup()
   pinMode(RPWM,OUTPUT);
   pinMode(LPWM,OUTPUT);
   pinMode(infomarche,OUTPUT);
-  digitalWrite(infomarche,LOW);
   pinMode(BpP,INPUT);
   pinMode(BpM,INPUT);
   pinMode(BpE,INPUT);
@@ -434,6 +433,8 @@ void setup()
   pinMode(radiorelL,INPUT_PULLUP);
   pinMode(radiorelR,INPUT_PULLUP);
   pinMode(buzzer,OUTPUT);
+  
+  digitalWrite(infomarche,LOW);
   
   Serial.println(F("Programme portail FS - F1IWQ 2022\r\nTapez ? pour l'aide"));
 
@@ -452,7 +453,7 @@ void setup()
   nombre_bip=0;
   Max_bip=0;
   HauteurBuz=3;
-  pos_ferme=1000; //&&&
+  //pos_ferme=1000; //&&&
   vide=F("                      ");
   
   menu=LOW;          // pas mode menu
@@ -536,11 +537,11 @@ bool Etat_BoutonEch()
 // Arrêt moteur sans pente de décélération
 void proc_arret_immediat()
 {
-  noTone(buzzer);
-  oled.setCursor(0,2); s=F("Arret Immediat    ");oled.println(s);
+  oled.setCursor(0,2); s=F("Arret Immediat        ");oled.println(s);
   oled.setCursor(0,5);oled.println(vide);
   Serial.println(s); 
 
+  cons_loc=0;
   analogWrite(RPWM,0);
   analogWrite(LPWM,0);
   tps_marche=1;
@@ -548,12 +549,10 @@ void proc_arret_immediat()
   demande_arret=LOW;      // raz flag demande arret
   avance_cours=LOW;
   recul_cours=LOW;
-  dem_cpt_mvt=LOW;
   arrete=HIGH;
   trajet_long=LOW;
   cpt_mvt=0;
   cpt_mvt_10=0;
-  seq_apprend=0;
   anc_consigne=0;
   consigne=0;
 }
@@ -579,7 +578,6 @@ void proc_recul()
       avance_cours=LOW;
       recul_cours=HIGH;
       arrete=LOW;
-      dem_cpt_mvt=HIGH;
 
       // si on est dans la zone de ralenti, obliger consigne lente
       if (pos<dist_dec) consigne=lent;
@@ -605,7 +603,7 @@ void proc_recul()
         }        
         delay(100);
       }
-      while ((!Fc_ferme) and (i<Tps_acc)) ;  // sort si Fc_ferme=HIGH ou i>=Tps_act 
+      while ((!Fc_ouvert) and (i<Tps_acc)) ;  // sort si Fc_ferme=HIGH ou i>=Tps_act 
     }  
   }
   else Serial.println(F("Cellule nok"));  
@@ -635,7 +633,8 @@ void proc_avance()
       avance_cours=HIGH;
       recul_cours=LOW;
       arrete=LOW;
-      dem_cpt_mvt=HIGH;
+
+      if (Fc_ouvert) trajet_long=HIGH; // début de la séquence d'un mouvement complet de Fc_ouvert à Fc_ferme pour le comptage temps maxi
 
       // si on est dans la zone de ralenti, obliger consigne lente
       if (pos>pos_ferme-dist_dec) consigne=lent;
@@ -643,7 +642,8 @@ void proc_avance()
       oled.setCursor(0,2); s=F("Avance         ");oled.println(s);
       increment=(consigne-anc_consigne)/Tps_acc;
       cons_loc=anc_consigne;
-            
+
+      // pente d'accélération
       i=0;
       do
       {
@@ -685,7 +685,6 @@ void traitement()
   Anc_BpE=Etat_BpE;
   Anc_BpEch=Etat_BpEch; 
 
-  
   // Etats actuels (n)
   Etat_BpP=Etat_BoutonP();
   Etat_BpM=Etat_BoutonM();
@@ -703,7 +702,7 @@ void traitement()
   {
     Serial.println(F("Arret par tps>fonctionnement long"));
     arret();
-    erreur=2;
+    erreur=4;
   }
 
   // recul immédiat
@@ -722,15 +721,13 @@ void traitement()
   if (demande_arr_imm) 
   {
     demande_arr_imm=LOW;
-    s=F("Demande arret immediat ");
-    Serial.println(s); 
-    oled.setCursor(0,2);oled.print(s);
+    //s=F("Demande arret immediat B");
+    //Serial.println(s); 
+    //oled.setCursor(0,2);oled.print(s);
     proc_arret_immediat();
   }
 
-  if ( (Fd_F & recul_cours)  | (Fd_O & avance_cours) ) trajet_long=HIGH; // début de la séquence d'un mouvement complet de Fc à Fc pour le comptage temps maxi
-
-   // affichage position  temps de fonctionnement et courant
+  // affichage position  temps de fonctionnement et courant
   if (avance_cours | recul_cours | dem_aff_pos)
   {  
     if ((iteration % 200)==0)  // Affichage tous les 200 tours
@@ -738,12 +735,13 @@ void traitement()
       dem_aff_pos=LOW;
       oled.setCursor(24,ligne_pos);oled.print(pos);oled.print(" "); 
       oled.print(cpt_mvt);oled.print("s ");
-      // copie de la variable globale "intensité" dans la variable locale en coupant les IRQ
-      cli();
+      // copie de la variable globale "intensité" dans la variable locale 
       int _intensite=intensite;
-      sei();
-      oled.print(_intensite);
-      oled.print("    ");
+      if (_intensite!=0)
+      {
+        oled.print(_intensite);
+        oled.print("    ");
+      }  
       //Serial.print(F("Courant R="));Serial.println(courantRIS);
       //Serial.print(F("Courant L="));Serial.println(courantLIS);
     }  
@@ -758,7 +756,7 @@ void traitement()
   // avance en cours (fermeture) ----------------------------------------------
   if (avance_cours==HIGH)
   {
-    if (erreur==2) erreur=0;   
+    if (erreur==4) erreur=0;   
        
     // Fin de course fermé ou cellule coupée arreter le mouvement d'avance
     if ((Fc_ferme) | (!Cellule_ok)) 
@@ -767,9 +765,7 @@ void traitement()
     }
    
     // passer en pv
-    if (  
-         ((pos>pos_ferme-dist_dec) & (consigne==rapide))  // à ajuster manuellement   // mode temporel
-       )  
+    if ((pos>pos_ferme-dist_dec) & (consigne==rapide))  
     {
       Serial.println(F("Position lente vers avance atteinte"));
       consigne=lent;
@@ -780,15 +776,12 @@ void traitement()
   // recul en cours (ouverture) -----------------------------------------------
   if (recul_cours==HIGH)
   {
-    if (erreur==2) erreur=0;
-
-    // front montant Fc reculé
-    if ((!Aouvert) & (Fc_ouvert)) seq_apprend=1;  
-     
+    if (erreur==4) erreur=0;
+    
     // Fin de course ouvert arreter le mouvement de recul (on ne tient pas compte de la cellule en recul)
     if (Fc_ouvert)  
     {
-       arret();
+       proc_arret_immediat();
     }
     
     // passer en PV
@@ -808,7 +801,6 @@ void traitement()
   
   // effacement du message de la télécommande
   if ((tempo_affT==1) & !menu) {oled.setCursor(0,6);oled.print(vide);}
-
 }
 
 // tempo en 1/10 de secondes
@@ -847,7 +839,7 @@ void serialFlush()
 {
   while(Serial.available() > 0) 
   {
-    char t = Serial.read();
+    Serial.read();
   }
 }
 
@@ -855,20 +847,25 @@ void serialFlush()
 void loop() 
 {
   traitement();    // traitement de fond   
+  //Serial.println(erreur);
   
   if (!menu)
   { 
     // affichage erreur
-    if ((AncErreur==0) & (erreur==1))
+    if ( (AncErreur==0) & ((erreur==1) | (erreur==2)) )
     { 
       AncErreur=erreur;
       s=F("Courant moteur elevé");
-      Max_bip=1;
+      Max_bip=erreur;
       tps_erreur=1;
       Serial.println(s);
       oled.setCursor(0,ligne_erreur);oled.print(s);
       oled.print(vide);
+
+      if (erreur==1) {consigne=lent;proc_recul();}
     }
+
+
 
     /*
     if ((AncErreur==1) & (erreur==0))
@@ -878,12 +875,12 @@ void loop()
     }
     */
 
-    if ((AncErreur==0) & (erreur==2))
+    if ((AncErreur==0) & (erreur==4))
     { 
       AncErreur=erreur;
       s=F("Erreur mvt trop long");
       tps_erreur=1;
-      Max_bip=2;
+      Max_bip=4;
       oled.setCursor(0,ligne_erreur);oled.print(s);
       oled.print(vide);
       Serial.println(s);
@@ -912,29 +909,36 @@ void loop()
     
    
     // Affichage Evt Fdc et cellule ----------------------------------------------------------
-    if (Mem_Fm_F)
+    if ((Fc_ferme) & (Fc_ouvert) & (msg_fdc!=1)) 
     {
-      s=F("Fdc ferme ");
+      s=F("Fdc ouvert et ferme ");
+      msg_fdc=1;
       Serial.println(s);
-      oled.setCursor(0,4);oled.println(s);
-    }
-    if (Mem_Fd_F)
-    {
-      Serial.println(F("Fdc ferme libéré"));
-      oled.setCursor(0,4);oled.println(vide);
+      oled.setCursor(0,4);oled.print(s);
     }
     
-    if (Mem_Fm_O)
+    if ((Fc_ferme) & (!Fc_ouvert) & (msg_fdc!=2)) 
     {
-      s=F("Fdc ouvert");
+      s=F("Fdc ferme           ");
+      msg_fdc=2;
       Serial.println(s);
-      oled.setCursor(0,4);oled.println(s);
+      oled.setCursor(0,4);oled.print(s);
     }
-    if (Mem_Fd_O)
+    if ((!Fc_ferme) & (!Fc_ouvert) & (msg_fdc!=3))
     {
-      Serial.println(F("Fdc ouvert libéré"));
-      oled.setCursor(0,4);oled.println(vide);
+      Serial.println(F("Fdc ferme libéré "));
+      msg_fdc=3;
+      oled.setCursor(0,4);oled.print(vide);
     }
+    
+    if ((Fc_ouvert) & (!Fc_ferme) & (msg_fdc!=4)) 
+    {
+      msg_fdc=4;
+      s=F("Fdc ouvert           ");
+      Serial.println(s);
+      oled.setCursor(0,4);oled.print(s);
+    }
+   
 
     if (Msg_cell_ok)
     {
@@ -951,7 +955,6 @@ void loop()
       Serial.println(s);
       oled.setCursor(0,6);oled.println(s);
     }
-
   }
   
   //réception des données depuis USB
@@ -1049,8 +1052,8 @@ void loop()
 
   if (chaine.substring(0,3)=="e")
   {
-    Serial.print(F("Fc Ferme   ")); Serial.println(digitalRead(FcFerme));
-    Serial.print(F("Fc Ouvert  ")); Serial.println(digitalRead(FcOuvert));
+    Serial.print(F("Fc Ferme   ")); Serial.print(digitalRead(FcFerme));Serial.print("  ");Serial.println(Fc_ferme);
+    Serial.print(F("Fc Ouvert  ")); Serial.print(digitalRead(FcOuvert));Serial.print("  ");Serial.println(Fc_ouvert);
     tempo(1);
     Serial.print(F("Cellule    ")); Serial.println(digitalRead(Cellule));
     Serial.print(F("Commande   ")); Serial.println(digitalRead(Commande));
@@ -1124,8 +1127,15 @@ void loop()
   }
 
   // demande de mouvement depuis le bornier (J4 bornes 2/7) ou radio -----------------------
-  if (((Man_Bornier | (!AncR & radioR) | (!AncL &radioL) & !menu & !Etat_Fus) | simu))  // &&&
-  {  
+  if (
+      (
+        Man_Bornier | 
+        (!AncR & radioR) | 
+        (!AncL & radioL)
+      ) 
+      & ((!menu & !Etat_Fus) | simu) 
+     )  
+   {  
     if (Man_Bornier) s=F("Commande bornier");
     if (radioL | radioR) s=F("Commande radio  ");
     Man_Bornier=LOW;
@@ -1169,9 +1179,12 @@ void loop()
         // si (sequencement) mode Av -> arret -> recul -> arret
         if (PPS==1)
         {
+          arret();
+          /*
           if (consigne==lent) arret();
           if (avance_cours & (consigne==rapide)) {consigne=lent;proc_avance();tempo(Tps_dec);arret();}
           if (recul_cours & (consigne==rapide)) {consigne=lent;proc_recul();tempo(Tps_dec);arret();} 
+          */
         }
         else
         // si mode Av -> Re -> Av -> Re (PPS=0)
@@ -1201,7 +1214,7 @@ void loop()
   // arret ----------------------------------------------------------------
   if (demande_arret)
   {
-     Serial.println(F("Arret par terminal"));
+     Serial.println(F("Demande arret"));
      arret();
      chaine="";
   }
@@ -1271,8 +1284,7 @@ void loop()
       curseur=LOW;
       PageMenu=0;
       Tempo_menu=0;   // figeage à 0 de la tempo menu
-      Ecran_base();
-     
+      Ecran_base();  
     }
 
     // descente curseur
@@ -1332,7 +1344,7 @@ void loop()
 
     // écran 1
     // apprentissage
-    if ( (((PageMenu==1) & menu) | FaireApprend ) & Cellule_ok & !Etat_Fus)
+    if ( (((PageMenu==1) & menu) | FaireApprend ) & Cellule_ok & !Etat_Fus & !(Fc_ouvert & Fc_ferme))
     {
       if ( ((ligne_menu==ligne_aprentiss) & (Enter | Fm_E) ) | FaireApprend) 
       {
@@ -1342,14 +1354,16 @@ void loop()
         Enter=LOW;  
         oled.clear();
         oled.set2X();
-        oled.print(F("Apprentiss."));
+        s=F("Apprentiss.");
+        oled.print(s);
         oled.set1X();
-        Serial.println(F("Apprentissage"));
+        Serial.println(s);
         arret();  
         serialFlush();
         oled.setCursor(0,ligne_pos);oled.print(F("Pos="));
+        intensite_max=4095;
         
-        // si on est sur le Fdc arrière (ouvert), avancer pour se dégager
+        // si on est sur le Fdc arrière (ouvert), avancer pour se dégager      
         if (Fc_ouvert) 
         {
            consigne=lent;
@@ -1360,10 +1374,11 @@ void loop()
            {
              traitement();
            }
-           while ( Fc_ouvert & (Serial.available()==0) & !Fm_Ech) ;
+           while ( !Fc_ouvert & (Serial.available()==0) & !Fm_Ech) ;
            proc_arret_immediat();
+           Serial.println(F("Fdc arriere libere"));
         }
-
+        
         // reculer pour accoster le FdC ouvert
         consigne=lent;
         proc_recul(); 
@@ -1374,58 +1389,64 @@ void loop()
         {
           traitement();
         }
-        while ( !Fc_ouvert & (Serial.available()==0) & !Fm_Ech) ;
+        while ( (!Fc_ouvert) & (Serial.available()==0) & !Fm_Ech) ;
         proc_arret_immediat();
         
         if (Fc_ouvert)
         {
-          s=F("prise origine faite. ");
+          s=F("prise origine faite  ");
           oled.setCursor(0,4);oled.println(s);
           Serial.print(s);
           s=F("Avance lente");
           oled.setCursor(0,5);oled.println(s);
           Serial.println(s);         
         }  
+        delay(500);
         
-        // avancer en lent vers le FdC ferme (avant) pour trouver la position du Fdc avant, mesurer le courant max         
+        // avancer en lent vers le FdC ferme (avant) pour trouver la position du Fdc avant       
         dem_aff_pos=HIGH;
         consigne=lent;
+                
         proc_avance(); // avancer pour trouver le FDC avant
         do
         {
           traitement();
         }  
         while ( !Fc_ferme & (Serial.available()==0) & !Fm_Ech);
-        if (Serial.available()!=0) Serial.println("Arret par liaison serie");
-        if (Fm_Ech) Serial.println("Arret par ECH");
+        if (Serial.available()!=0) Serial.println(F("Arret par liaison serie"));
+        if (Fm_Ech) Serial.println(F("Arret par ECH"));
         
         proc_arret_immediat();
-        if (Fc_ferme)
+        if ((Fc_ferme) & (pos>500))
         {
           s=F("Position finale mesuree ");
           oled.setCursor(0,4);oled.println(s);
           Serial.println(s);
         }  
-        
-        
-        if (!Fm_Ech) // si pas appui sur bp ECH
+
+        if ((Fc_ferme) & (pos<500))
         {
-         
-          // aller chercher le FDC recul pour mesurer le courant en reculant
+          s=F("Erreur position      ");
+          oled.setCursor(0,4);oled.println(s);
+          Serial.println(s);
+        }  
+  
+        // aller chercher le FDC recul pour mesurer le courant en reculant ----------
+        if (!Fm_Ech) // si pas appui sur bp ECH
+        {         
           tempo(20);
           consigne=rapide;
           proc_recul();
           s=F("Mesure courant recul  ");
-          oled.setCursor(0,4);oled.println(s);oled.println(vide);
+          oled.setCursor(0,4);oled.println(s);
+          oled.println(vide);
           Serial.println(s);
-          intensite_max=0;
+          _intensite_max=0;
           do
           {
             traitement();  
-            cli();
             int _intensite=intensite;
-            sei();
-            if (intensite_max<_intensite) intensite_max=_intensite;
+            if (_intensite_max<_intensite) _intensite_max=_intensite;
           }  
           while ( (!Fc_ouvert) & (Serial.available()==0) & !Fm_Ech );
           inByte = Serial.read();  // vide tampon 
@@ -1433,9 +1454,9 @@ void loop()
         }  
         oled.setCursor(0,4);oled.println(vide);
 
+        // aller chercher le FDC avance pour mesurer le courant en avance---------
         if (!Fm_Ech) // si pas appui sur bp ECH
         {    
-          // aller chercher le FDC avance pour mesurer le courant en avance
           tempo(20);
           consigne=rapide;
           proc_avance();
@@ -1445,26 +1466,35 @@ void loop()
           do
           {
             traitement();  
-            cli();
             int _intensite=intensite;
-            sei();
-            if (intensite_max<_intensite) intensite_max=_intensite;
+            if (_intensite_max<_intensite) _intensite_max=_intensite;
           }  
           while ( (!Fc_ferme) & (Serial.available()==0) & !Fm_Ech );
           inByte = Serial.read();  // vide tampon 
           proc_arret_immediat();
         }  
         oled.setCursor(0,4);oled.println(vide);
-        
-        s=F("courant max=");
-        Serial.print(s);Serial.print(intensite_max);
-        oled.setCursor(0,5);oled.print(s);oled.print(intensite_max); //zizi
-        intensite_max=intensite_max+((intensite_max*20)/100);
-        s=F(" +20%=");
-        Serial.print(s);Serial.println(intensite_max);
-        oled.setCursor(0,6);
-        oled.print(s);oled.print(intensite_max); 
-        ecrit_eprom();   // mémorise les positions avance et recul ralentissement
+
+        if (_intensite_max>50)
+        {
+          intensite_max=_intensite_max;
+          s=F("courant max=");
+          Serial.print(s);Serial.print(intensite_max);
+          oled.setCursor(0,5);oled.print(s);oled.print(intensite_max); 
+          intensite_max=intensite_max+((intensite_max*20)/100);
+          if (intensite_max>4095) intensite_max=4095;
+          s=F(" +20%=");
+          Serial.print(s);Serial.println(intensite_max);
+          oled.setCursor(0,6);oled.print(s);oled.print(intensite_max); 
+          oled.setCursor(0,7);oled.print("Sauvegarde EPROM");
+          ecrit_eprom();   // mémorise les positions avance et recul ralentissement
+        }
+        else 
+        {
+          s=F("Erreur mesure courant");
+          Serial.println(s);
+          oled.setCursor(0,5);oled.print(s);   
+        }
         
         dem_aff_pos=LOW;
         tempo(50);
@@ -1689,7 +1719,7 @@ void loop()
             oled.setCursor(66,coordY());oled.print(Tps_accP);
             Simu2=LOW;
           }
-          if ((Fm_M | Simu8) & (Tps_acc>2))  
+          if ((Fm_M | Simu8) & (Tps_accP>2))  
           {
             --Tps_accP;
             oled.setCursor(66,coordY());oled.print(Tps_accP);oled.print(" ");
@@ -1730,13 +1760,13 @@ void loop()
         }  
         if (Seq==1)
         {
-          if ((Fm_P | Simu2) & (Tps_accP<20)) 
+          if ((Fm_P | Simu2) & (Tps_decP<20)) 
           {
             ++Tps_decP;
             oled.setCursor(66,coordY());oled.print(Tps_decP);
             Simu2=LOW;
           }
-          if ((Fm_M | Simu8) & (Tps_acc>2))  
+          if ((Fm_M | Simu8) & (Tps_decP>2))  
           {
             --Tps_decP;
             oled.setCursor(66,coordY());oled.print(Tps_decP);oled.print(" ");
@@ -1777,13 +1807,16 @@ void loop()
         }  
         if (Seq==1)
         {
-          if ((Fm_P | Simu2) & (dist_decP<300)) 
+          if ((Etat_BpP | Etat_BpM) & (delayautorepeat<1000)) ++delayautorepeat;        
+          if (!Etat_BpP & !Etat_BpM) {delayautorepeat=0;autorepeat=0;}
+                
+          if ( (Fm_P | Simu2 | (Etat_BpP & (autorepeat==50)) ) & (dist_decP<3000) ) 
           {
             ++dist_decP;
-            oled.setCursor(70,coordY());oled.print(dist_decP);
+            oled.setCursor(70,coordY());oled.print(dist_decP);oled.print(" ");
             Simu2=LOW;
           }
-          if ((Fm_M | Simu8) & (dist_decP>2))  
+          if ( (Fm_M | Simu8 | (Etat_BpM & (autorepeat==50)) ) & (dist_decP>2) )  
           {
             --dist_decP;
             oled.setCursor(70,coordY());oled.print(dist_decP);oled.print(" ");
@@ -1807,12 +1840,11 @@ void loop()
             curseur=HIGH;
           } 
         }
+        if (delayautorepeat==1000) ++autorepeat;
+        if (autorepeat==51) autorepeat=0;
       }     
     }
   }      
   
-  Mem_Fd_F=LOW;
-  Mem_Fd_O=LOW;
-  Mem_Fm_F=LOW;
-  Mem_Fm_O=LOW; 
+ 
 }

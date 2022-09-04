@@ -65,27 +65,8 @@ Wire Wire Line
 	1250 1000 1250 1350
 Wire Wire Line
 	2300 1350 2300 1300
-Wire Notes Line
-	9200 550  11100 550 
 Text Notes 9500 1150 0    79   ~ 0
      Module IBT_2\n  pilotage du moteur \n  à courant continu\nconstitué de 2xBTS7960
-Text Notes 8200 750  0    59   ~ 0
-Alimentation\nmodule IBT_2
-Wire Wire Line
-	8200 1000 8050 1000
-Wire Wire Line
-	8050 1000 8050 1100
-$Comp
-L power:GND #PWR022
-U 1 1 62C27742
-P 8050 1100
-F 0 "#PWR022" H 8050 850 50  0001 C CNN
-F 1 "GND" H 8055 927 50  0000 C CNN
-F 2 "" H 8050 1100 50  0001 C CNN
-F 3 "" H 8050 1100 50  0001 C CNN
-	1    8050 1100
-	1    0    0    -1  
-$EndComp
 $Comp
 L Connector:Conn_01x08_Male J11
 U 1 1 62C4A28E
@@ -185,26 +166,15 @@ LIS
 Text Label 10450 1500 0    50   ~ 0
 GND
 $Comp
-L power:GND #PWR023
-U 1 1 62C0D486
-P 8200 2300
-F 0 "#PWR023" H 8200 2050 50  0001 C CNN
-F 1 "GND" H 8300 2350 50  0000 C CNN
-F 2 "" H 8200 2300 50  0001 C CNN
-F 3 "" H 8200 2300 50  0001 C CNN
-	1    8200 2300
-	1    0    0    -1  
-$EndComp
-$Comp
 L Device:D_Zener D5
 U 1 1 62C5A5F0
-P 9300 1600
-F 0 "D5" H 9450 1550 50  0000 C CNN
-F 1 "D_Z5.1V" H 9250 1700 50  0000 C CNN
-F 2 "Diode_THT:D_A-405_P7.62mm_Horizontal" H 9300 1600 50  0001 C CNN
-F 3 "~" H 9300 1600 50  0001 C CNN
-	1    9300 1600
-	-1   0    0    1   
+P 9350 2050
+F 0 "D5" V 9250 1950 50  0000 C CNN
+F 1 "D_Z5.1V" V 9650 2050 50  0000 C CNN
+F 2 "Diode_THT:D_A-405_P7.62mm_Horizontal" H 9350 2050 50  0001 C CNN
+F 3 "~" H 9350 2050 50  0001 C CNN
+	1    9350 2050
+	0    1    1    0   
 $EndComp
 $Comp
 L Device:R R25
@@ -217,48 +187,28 @@ F 3 "~" H 9800 1600 50  0001 C CNN
 	1    9800 1600
 	0    1    1    0   
 $EndComp
-Wire Wire Line
-	9450 1600 9550 1600
-Wire Wire Line
-	9550 1600 9550 1750
-Connection ~ 9550 1600
-Wire Wire Line
-	9550 1600 9650 1600
 $Comp
 L Device:D_Zener D6
 U 1 1 62C71CA2
-P 9300 2050
-F 0 "D6" H 9450 2000 50  0000 C CNN
-F 1 "D_Z5.1V" H 9250 2150 50  0000 C CNN
-F 2 "Diode_THT:D_A-405_P7.62mm_Horizontal" H 9300 2050 50  0001 C CNN
-F 3 "~" H 9300 2050 50  0001 C CNN
-	1    9300 2050
-	-1   0    0    1   
+P 8650 2050
+F 0 "D6" V 8550 1950 50  0000 C CNN
+F 1 "D_Z5.1V" V 8950 2050 50  0000 C CNN
+F 2 "Diode_THT:D_A-405_P7.62mm_Horizontal" H 8650 2050 50  0001 C CNN
+F 3 "~" H 8650 2050 50  0001 C CNN
+	1    8650 2050
+	0    1    1    0   
 $EndComp
 $Comp
 L Device:R R27
 U 1 1 62C71CAC
-P 9800 2050
-F 0 "R27" V 9900 1950 50  0000 C CNN
-F 1 "1k" V 9900 2200 50  0000 C CNN
-F 2 "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal" V 9730 2050 50  0001 C CNN
-F 3 "~" H 9800 2050 50  0001 C CNN
-	1    9800 2050
+P 9800 1350
+F 0 "R27" V 9900 1200 50  0000 C CNN
+F 1 "1k" V 9900 1500 50  0000 C CNN
+F 2 "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal" V 9730 1350 50  0001 C CNN
+F 3 "~" H 9800 1350 50  0001 C CNN
+	1    9800 1350
 	0    1    1    0   
 $EndComp
-Wire Wire Line
-	9450 2050 9550 2050
-Wire Wire Line
-	9550 2050 9550 2200
-Connection ~ 9550 2050
-Wire Wire Line
-	9550 2050 9650 2050
-Text Label 8650 1750 0    50   ~ 0
-PLIS
-Text Label 8650 2200 0    50   ~ 0
-PRIS
-Wire Wire Line
-	9550 2200 8650 2200
 $Comp
 L power:+5V #PWR017
 U 1 1 62C4041C
@@ -786,8 +736,6 @@ Text Label 4100 4100 0    50   ~ 0
 Ouvert
 Text Label 4650 4300 1    50   ~ 0
 Ferme
-Wire Wire Line
-	9550 1750 8650 1750
 Wire Notes Line
 	550  2300 2500 2300
 $Comp
@@ -1004,11 +952,7 @@ Wire Wire Line
 Wire Wire Line
 	10200 1700 10200 1600
 Wire Wire Line
-	10700 1800 10200 1800
-Wire Wire Line
 	9950 1600 10200 1600
-Wire Wire Line
-	9950 2050 10200 2050
 $Comp
 L Relay:FINDER-44.62 K1
 U 1 1 62C77F16
@@ -1502,7 +1446,7 @@ Wire Wire Line
 	10450 3950 10800 3950
 Wire Wire Line
 	10450 4050 10800 4050
-Text Notes 8100 1550 0    50   ~ 0
+Text Notes 8450 1050 0    50   ~ 0
 Image des courants\n    des ponts en H
 $Comp
 L power:GND #PWR024
@@ -1611,30 +1555,6 @@ F 3 "~" H 7800 5550 50  0001 C CNN
 	1    7800 5550
 	1    0    0    -1  
 $EndComp
-$Comp
-L Connector:Conn_01x01_Male J8
-U 1 1 62CD651F
-P 8400 900
-F 0 "J8" H 8350 900 50  0000 R CNN
-F 1 "Conn_01x01_Male" H 8600 1250 50  0000 R CNN
-F 2 "Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical" H 8400 900 50  0001 C CNN
-F 3 "~" H 8400 900 50  0001 C CNN
-	1    8400 900 
-	-1   0    0    1   
-$EndComp
-$Comp
-L Connector:Conn_01x01_Male J9
-U 1 1 62CD72A3
-P 8400 1000
-F 0 "J9" H 8350 1000 50  0000 R CNN
-F 1 "Conn_01x01_Male" H 8600 1150 50  0000 R CNN
-F 2 "Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical" H 8400 1000 50  0001 C CNN
-F 3 "~" H 8400 1000 50  0001 C CNN
-	1    8400 1000
-	-1   0    0    1   
-$EndComp
-Text Notes 8150 1100 0    50   ~ 0
-Harpons
 $Comp
 L Mechanical:Fiducial FID9
 U 1 1 62C96000
@@ -1837,17 +1757,11 @@ Buzzer
 Wire Wire Line
 	9200 4800 9200 4750
 Wire Notes Line
-	9200 550  9200 1350
-Wire Notes Line
 	11100 550  11100 2450
 Wire Notes Line
 	6950 5000 6950 2550
 Wire Notes Line
 	6950 2550 11100 2550
-Wire Notes Line
-	7950 2450 7950 1350
-Wire Notes Line
-	7950 1350 9200 1350
 Wire Notes Line
 	11100 2450 7950 2450
 Wire Wire Line
@@ -1963,7 +1877,6 @@ Wire Notes Line
 	550  2300 550  5400
 Wire Notes Line
 	2500 2300 2500 5400
-Connection ~ 4100 900 
 Wire Wire Line
 	6000 3850 6000 3950
 Wire Wire Line
@@ -1984,8 +1897,6 @@ F 3 "~" H 6100 2500 50  0001 C CNN
 	1    6100 2500
 	0    1    1    0   
 $EndComp
-Wire Wire Line
-	2850 900  4100 900 
 NoConn ~ 8600 3350
 NoConn ~ 8600 3250
 NoConn ~ 8600 3150
@@ -2098,13 +2009,6 @@ $EndComp
 Text Notes 1900 7250 0    59   ~ 0
 ou BC546,\nBC547, \nBC548,\nBC549,\nBC550
 Wire Wire Line
-	8200 2050 8200 2300
-Wire Wire Line
-	8200 1600 8200 2050
-Connection ~ 8200 2050
-Wire Wire Line
-	4100 900  8200 900 
-Wire Wire Line
 	6250 2500 6550 2500
 Wire Wire Line
 	4250 2500 5800 2500
@@ -2194,12 +2098,6 @@ Wire Notes Line style solid
 	3100 2600 3100 2650
 Wire Notes Line style solid
 	3200 2800 3200 2600
-Wire Wire Line
-	8200 1600 9150 1600
-Wire Wire Line
-	10200 1800 10200 2050
-Wire Wire Line
-	8200 2050 9150 2050
 $Comp
 L power:GND #PWR0101
 U 1 1 62EBA9FB
@@ -2283,4 +2181,176 @@ Wire Wire Line
 	9300 2700 10300 2700
 Wire Wire Line
 	5050 1550 5350 1550
+Connection ~ 4100 900 
+Text Notes 7100 1100 0    50   ~ 0
+Harpons
+$Comp
+L Connector:Conn_01x01_Male J9
+U 1 1 62CD72A3
+P 7350 1000
+F 0 "J9" H 7300 1000 50  0000 R CNN
+F 1 "Conn_01x01_Male" H 7600 1250 50  0000 R CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical" H 7350 1000 50  0001 C CNN
+F 3 "~" H 7350 1000 50  0001 C CNN
+	1    7350 1000
+	-1   0    0    1   
+$EndComp
+$Comp
+L Connector:Conn_01x01_Male J8
+U 1 1 62CD651F
+P 7350 900
+F 0 "J8" H 7300 900 50  0000 R CNN
+F 1 "Conn_01x01_Male" H 7600 1350 50  0000 R CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical" H 7350 900 50  0001 C CNN
+F 3 "~" H 7350 900 50  0001 C CNN
+	1    7350 900 
+	-1   0    0    1   
+$EndComp
+$Comp
+L power:GND #PWR022
+U 1 1 62C27742
+P 7000 1100
+F 0 "#PWR022" H 7000 850 50  0001 C CNN
+F 1 "GND" H 7005 927 50  0000 C CNN
+F 2 "" H 7000 1100 50  0001 C CNN
+F 3 "" H 7000 1100 50  0001 C CNN
+	1    7000 1100
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	7000 1000 7000 1100
+Wire Wire Line
+	7150 1000 7000 1000
+Text Notes 7000 800  0    59   ~ 0
+Alimentation\nmodule IBT_2
+Wire Wire Line
+	4100 900  7150 900 
+Wire Wire Line
+	2850 900  4100 900 
+Wire Notes Line
+	7950 550  11100 550 
+Wire Notes Line
+	7950 550  7950 2450
+Text Label 8100 1300 0    50   ~ 0
+PRIS
+Text Label 8100 1100 0    50   ~ 0
+PLIS
+$Comp
+L Device:R R26
+U 1 1 6310F759
+P 9000 1600
+F 0 "R26" H 9150 1550 50  0000 C CNN
+F 1 "5k" H 9100 1650 50  0000 C CNN
+F 2 "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal" V 8930 1600 50  0001 C CNN
+F 3 "~" H 9000 1600 50  0001 C CNN
+	1    9000 1600
+	-1   0    0    1   
+$EndComp
+$Comp
+L Device:R R32
+U 1 1 631278AE
+P 9000 2000
+F 0 "R32" H 9150 1950 50  0000 C CNN
+F 1 "1k" H 9100 2050 50  0000 C CNN
+F 2 "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal" V 8930 2000 50  0001 C CNN
+F 3 "~" H 9000 2000 50  0001 C CNN
+	1    9000 2000
+	-1   0    0    1   
+$EndComp
+$Comp
+L Device:R R18
+U 1 1 631C9841
+P 8300 1600
+F 0 "R18" H 8450 1550 50  0000 C CNN
+F 1 "5k" H 8400 1650 50  0000 C CNN
+F 2 "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal" V 8230 1600 50  0001 C CNN
+F 3 "~" H 8300 1600 50  0001 C CNN
+	1    8300 1600
+	-1   0    0    1   
+$EndComp
+$Comp
+L Device:R R24
+U 1 1 631C9848
+P 8300 2000
+F 0 "R24" H 8450 1950 50  0000 C CNN
+F 1 "1k" H 8400 2050 50  0000 C CNN
+F 2 "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal" V 8230 2000 50  0001 C CNN
+F 3 "~" H 8300 2000 50  0001 C CNN
+	1    8300 2000
+	-1   0    0    1   
+$EndComp
+Wire Wire Line
+	8300 1750 8300 1800
+Connection ~ 8300 1800
+Wire Wire Line
+	8300 1800 8300 1850
+$Comp
+L power:GND #PWR023
+U 1 1 6327580F
+P 8300 2300
+F 0 "#PWR023" H 8300 2050 50  0001 C CNN
+F 1 "GND" H 8150 2350 50  0000 C CNN
+F 2 "" H 8300 2300 50  0001 C CNN
+F 3 "" H 8300 2300 50  0001 C CNN
+	1    8300 2300
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	8300 1300 8100 1300
+Wire Wire Line
+	8300 1300 8300 1450
+Wire Wire Line
+	8100 1100 9000 1100
+Wire Wire Line
+	8650 1800 8650 1900
+Wire Wire Line
+	8300 1800 8650 1800
+Wire Wire Line
+	8300 2150 8300 2250
+Wire Wire Line
+	8650 2200 8650 2250
+Wire Wire Line
+	8650 2250 8300 2250
+Connection ~ 8300 2250
+Wire Wire Line
+	8300 2250 8300 2300
+Wire Wire Line
+	8650 2250 9000 2250
+Connection ~ 8650 2250
+Wire Wire Line
+	9000 2150 9000 2250
+Wire Wire Line
+	9000 1750 9000 1800
+Wire Wire Line
+	9000 1800 9200 1800
+Wire Wire Line
+	9200 1800 9200 1600
+Connection ~ 9000 1800
+Wire Wire Line
+	9000 1800 9000 1850
+Wire Wire Line
+	9000 2250 9350 2250
+Connection ~ 9000 2250
+Wire Wire Line
+	9000 1100 9000 1450
+Wire Wire Line
+	10050 1350 9950 1350
+Wire Wire Line
+	10050 1800 10050 1350
+Wire Wire Line
+	9650 1350 8650 1350
+Wire Wire Line
+	8650 1350 8650 1800
+Connection ~ 8650 1800
+Wire Wire Line
+	10050 1800 10700 1800
+Wire Wire Line
+	9200 1600 9350 1600
+Wire Wire Line
+	9350 2200 9350 2250
+Wire Wire Line
+	9350 1900 9350 1600
+Connection ~ 9350 1600
+Wire Wire Line
+	9350 1600 9650 1600
 $EndSCHEMATC
