@@ -1,5 +1,5 @@
 // *********************************************************
-// Version 03 09 2022 16h00 
+// Version 07 09 2022 17h20
 // Pilotage PWM de moteurs à courant continu
 // pour ARDUINO NANO - F1IWQ
 // pour la compilation et le téléchargement, sélectionner arduino NANO sinon le téléchargement ne fonctionnera pas.
@@ -64,7 +64,7 @@ const String ligne_menu_S[]={"Apprentissage",
 #define   BpM        12     // D12 portB.4 Bouton -
 #define   BpP        11     // D11 portB.3 Bouton +
 #define   BpE        10     // D10 portB.2 Bouton ENTREE
-#define   infomarche  9     // D9  portB.1 
+#define   infomarche  9     // D9  portB.1 Relais K1
 #define   BpEch       8     // D8  portB.0 Bouton Ech
 #define   Commande    7     // D7  portD.7 Commande ouverture/fermeture 
 #define   RPWM        6     // D6  portD.6 pilotage PWM R
@@ -96,15 +96,15 @@ volatile int  Tempo_menu,derniere_ligne,premiere_ligne,PageMenu,cpt_mvt,timer;
 volatile int  tempo_affT,Temps_bornier,Tps_fonctionnement,Tps_fonc_P;
 volatile int  decale,offset,cpt_mvt_10,courantRIS,courantLIS,s_consigne,courantLIS_arr,courantRIS_arr;
 volatile int  Tps_accP,Tps_acc,Tps_dec,Tps_decP,pos,consigne,cons_loc,increment,anc_consigne;
-volatile int  tempo_bip,nombre_bip,Max_bip,compt_seq,ADC_p,tps_marche,msg_fdc;
+volatile int  tempo_bip,nombre_bip,Max_bip,compt_seq,ADC_p,tps_marche,msg_fdc,tempo_apres_acc;
          int  _intensite_max,autorepeat,delayautorepeat; 
 volatile byte Sens_Ouv,Sens_Ouv_P,PPS,PPS_P;
 volatile byte bip,HauteurBuz,erreur;
-volatile bool demande_arret,Fc_ferme,Fc_ouvert,avance,recul ; 
+volatile bool demande_arret,Fc_ferme,Fc_ouvert,avance,recul,debug ; 
 volatile bool Aferme,Aouvert,simu,recul_cours,avance_cours,MemRecul,MemAvance ;
 volatile bool dem_inc_boutonM,dem_inc_boutonP,Cellule_ok,ACellule,menu,Anc_BpP,Anc_BpM,Anc_BpE ;
 volatile bool simuMenu,Simu8,Simu2,Enter,Anc_BpEch,Etat_BpP,Etat_BpM,Msg_cell_ok;
-volatile bool dem_inc_boutonE,Etat_BpE,Etat_BpEch,curseur;
+volatile bool dem_inc_boutonE,Etat_BpE,Etat_BpEch,curseur,decel,accel;
 volatile bool Fm_M,Fm_E,Fm_P,Fm_Ech,dem_inc_boutonEch,Fm_O,Fm_F,Fd_O,Fd_F;
 volatile bool arrete,Cde_bornier,Fm_Bornier,Abornier,demande_arr_imm;
 volatile bool demande_recul_imm,FmBornier,Man_Bornier,litRIS,radioR,radioL,dem_aff_pos;
@@ -182,6 +182,8 @@ void Interrupt_T1()
         
     if (val_tempo!=0) --val_tempo;
     if (tempo_bip!=0) ++tempo_bip;
+    if (tempo_apres_acc!=0) {++tempo_apres_acc;}
+    if (tempo_apres_acc>10) tempo_apres_acc=0;
     
     if (nombre_bip<Max_bip)
     {
@@ -230,7 +232,7 @@ void Interrupt_T1()
       if (avance_cours | recul_cours) ++cpt_mvt;
       if (Tempo_menu>0) {++Tempo_menu;} 
       if (tps_marche>0) ++tps_marche;
-      if (tps_marche==30) digitalWrite(infomarche,LOW);
+      if (tps_marche==30) {digitalWrite(infomarche,LOW);tps_marche=0;}
     } 
 
     // intégration position: la distance est la vitesse (cons_loc) mesuré tous les 1/10ème de s  ------------------
@@ -277,17 +279,24 @@ void Interrupt_T1()
     }
    
     if ( ((avance_cours) & (Sens_Ouv==1)) | ((recul_cours) & (Sens_Ouv==0)) )  
-    {
+    {  
       intensite=courantLIS-courantLIS_arr;
-      if (intensite>=intensite_max) {erreur=1;demande_arr_imm=HIGH;}
-      else erreur=0;
-    }
+    }  
     if ( ((recul_cours)  & (Sens_Ouv==1)) | ((avance_cours) & (Sens_Ouv==0)) )
     {
       intensite=courantRIS-courantRIS_arr;
-      if (intensite>=intensite_max) {erreur=2;demande_arr_imm=HIGH;}
-      else erreur=0;
+    
     }
+    // on ne vérifie pas l'intensité en accélération ou en décélération car elle crée un pic
+    if ((avance_cours | recul_cours) & (!accel) & (!decel) & (tempo_apres_acc==0) )
+    { 
+      if (intensite>255L*intensite_max/consigne)  // la consigne max sert de comparaison de courant. "L" obligatoire car on travaille en entier long.
+      {
+        if (avance_cours) erreur=1; else erreur=2;
+        if (debug) Serial.print(intensite);Serial.print(" / ");Serial.println(255L*intensite_max/consigne);
+        demande_arr_imm=HIGH;
+      }
+    }  
    
     litRIS=!litRIS;
     
@@ -376,11 +385,11 @@ void arret()
               
   i=0;
   // pente de décélération
+  decel=HIGH;  
   do
   {
     ++i;
-    //Serial.println(cons_loc);
-         
+    //Serial.println(cons_loc);     
     cons_loc=cons_loc-increment;
     if ( ((Sens_Ouv==1) & (avance_cours)) | ((Sens_Ouv==0) & (avance_cours)) )
     {
@@ -407,6 +416,7 @@ void arret()
   cpt_mvt=0;
   cpt_mvt_10=0;
   anc_consigne=0;
+  decel=LOW;  
   consigne=0;
   dem_aff_pos=HIGH;
 }
@@ -451,6 +461,7 @@ void setup()
   erreur=0;
   AncErreur=0;
   nombre_bip=0;
+  tps_marche=0;
   Max_bip=0;
   HauteurBuz=3;
   //pos_ferme=1000; //&&&
@@ -462,7 +473,7 @@ void setup()
   demande_arr_imm=LOW;
   arrete=HIGH;
   Cellule_ok=HIGH;   // provoque le message cellule coupée au démarrage si la cellule est coupée
-
+  debug=LOW;
   marche_buz=LOW;
   for (i=20 ; i<160 ; i++)
   {
@@ -499,6 +510,8 @@ void setup()
   Timer1.attachInterrupt(Interrupt_T1);
  
   arret();
+
+
 }
 
 // renvoie HIGH si le bouton + est à 1 depuis 0,2 seconde
@@ -537,6 +550,7 @@ bool Etat_BoutonEch()
 // Arrêt moteur sans pente de décélération
 void proc_arret_immediat()
 {
+  decel=HIGH;  
   oled.setCursor(0,2); s=F("Arret Immediat        ");oled.println(s);
   oled.setCursor(0,5);oled.println(vide);
   Serial.println(s); 
@@ -555,6 +569,7 @@ void proc_arret_immediat()
   cpt_mvt_10=0;
   anc_consigne=0;
   consigne=0;
+  decel=LOW;  
 }
 
 void proc_recul()
@@ -562,9 +577,7 @@ void proc_recul()
   if ((Cellule_ok) | HIGH)  // on autorise le recul sur cellule coupée
   {
     if (Fc_ouvert==LOW) 
-    {
-      digitalWrite(infomarche,HIGH);
-    
+    {  
       if (avance_cours)   // inversion
       {
         Serial.println(F("Inversion"));
@@ -578,7 +591,9 @@ void proc_recul()
       avance_cours=LOW;
       recul_cours=HIGH;
       arrete=LOW;
-
+      
+      digitalWrite(infomarche,HIGH);tps_marche=0;
+      
       // si on est dans la zone de ralenti, obliger consigne lente
       if (pos<dist_dec) consigne=lent;
       Serial.print(F("Ancienne consigne a "));Serial.print(anc_consigne);Serial.print(F(" - Recul a "));Serial.println(consigne);
@@ -586,6 +601,7 @@ void proc_recul()
       increment=(consigne-anc_consigne)/Tps_acc;
       cons_loc=anc_consigne;             
       i=0;
+      accel=HIGH;
       do
       {
         ++i;
@@ -604,6 +620,8 @@ void proc_recul()
         delay(100);
       }
       while ((!Fc_ouvert) and (i<Tps_acc)) ;  // sort si Fc_ferme=HIGH ou i>=Tps_act 
+      tempo_apres_acc=1;  // démarre la tempo après accélération
+      accel=LOW;
     }  
   }
   else Serial.println(F("Cellule nok"));  
@@ -617,9 +635,7 @@ void proc_avance()
   if (Cellule_ok)
   {
     if (Fc_ferme==LOW) 
-    {
-      digitalWrite(infomarche,HIGH);
-           
+    {    
       if (recul_cours)   // inversion
       {
         Serial.println(F("Inversion"));
@@ -633,6 +649,8 @@ void proc_avance()
       avance_cours=HIGH;
       recul_cours=LOW;
       arrete=LOW;
+      
+      digitalWrite(infomarche,HIGH);tps_marche=0;
 
       if (Fc_ouvert) trajet_long=HIGH; // début de la séquence d'un mouvement complet de Fc_ouvert à Fc_ferme pour le comptage temps maxi
 
@@ -645,6 +663,7 @@ void proc_avance()
 
       // pente d'accélération
       i=0;
+      accel=HIGH;
       do
       {
         ++i;
@@ -663,6 +682,8 @@ void proc_avance()
         delay(100);
       }
       while ((!Fc_ferme) and (i<Tps_acc)) ;  // sort si Fc_ferme=HIGH ou i>=Tps_act 
+      tempo_apres_acc=1;  // démarre la tempo après accélération
+      accel=LOW;
     }
   } 
   else Serial.println(F("Cellule nok"));  
@@ -730,7 +751,7 @@ void traitement()
   // affichage position  temps de fonctionnement et courant
   if (avance_cours | recul_cours | dem_aff_pos)
   {  
-    if ((iteration % 200)==0)  // Affichage tous les 200 tours
+    if ((iteration % 400)==0)  // Affichage tous les 400 tours
     {
       dem_aff_pos=LOW;
       oled.setCursor(24,ligne_pos);oled.print(pos);oled.print(" "); 
@@ -846,8 +867,15 @@ void serialFlush()
 // ------------------------------------------------ P R O G R A M M E   P R I N C I P A L --------------------------------------------
 void loop() 
 {
-  traitement();    // traitement de fond   
-  //Serial.println(erreur);
+  traitement();    // traitement de fond 
+  if (debug)
+  {  
+    if (((avance_cours | recul_cours)) & (intensite!=0)) 
+    {
+      if (consigne==lent) Serial.print("L "); else Serial.print("R ");
+      Serial.println(intensite);
+    }
+  }  
   
   if (!menu)
   { 
@@ -864,8 +892,6 @@ void loop()
 
       if (erreur==1) {consigne=lent;proc_recul();}
     }
-
-
 
     /*
     if ((AncErreur==1) & (erreur==0))
@@ -1142,7 +1168,8 @@ void loop()
     simu=LOW;
     Serial.println(s);
     oled.setCursor(0,5);oled.println(s);
-
+    if ((erreur==1) | (erreur==2)) erreur=0;
+    
     // si arreté sur un FdC 
     if (Fc_ouvert | Fc_ferme)
     {
@@ -1153,7 +1180,8 @@ void loop()
         if (Fc_ferme)  {consigne=rapide;proc_recul();}
       }  
       else 
-        {Serial.println(F("cas2"));arret();}
+        { if ((erreur==1) | (erreur==2)) erreur=0;
+          Serial.println(F("cas2"));arret();}
     }  
     
     else
@@ -1222,8 +1250,16 @@ void loop()
   // Boutons hors mode menu
   if (!menu & !Etat_Fus) 
   {
-    if (Fm_P) {consigne=rapide;proc_avance();}
-    if (Fm_M) {consigne=rapide;proc_recul();} 
+    if (Fm_P) 
+    {
+      if ((erreur==1) | (erreur==2)) erreur=0;
+      consigne=rapide;proc_avance();
+    }
+    if (Fm_M) 
+    {
+      if ((erreur==1) | (erreur==2)) erreur=0;
+      consigne=rapide;proc_recul();
+    } 
     if (Fm_Ech & (recul_cours | avance_cours))
     {
       Serial.println(F("Arret par BP"));
@@ -1374,7 +1410,7 @@ void loop()
            {
              traitement();
            }
-           while ( !Fc_ouvert & (Serial.available()==0) & !Fm_Ech) ;
+           while ( Fc_ouvert & (Serial.available()==0) & !Fm_Ech) ;
            proc_arret_immediat();
            Serial.println(F("Fdc arriere libere"));
         }
@@ -1405,8 +1441,7 @@ void loop()
         
         // avancer en lent vers le FdC ferme (avant) pour trouver la position du Fdc avant       
         dem_aff_pos=HIGH;
-        consigne=lent;
-                
+        consigne=lent;              
         proc_avance(); // avancer pour trouver le FDC avant
         do
         {
@@ -1437,7 +1472,7 @@ void loop()
           tempo(20);
           consigne=rapide;
           proc_recul();
-          s=F("Mesure courant recul  ");
+          s=F("Mesure courant max recul  ");
           oled.setCursor(0,4);oled.println(s);
           oled.println(vide);
           Serial.println(s);
@@ -1446,7 +1481,11 @@ void loop()
           {
             traitement();  
             int _intensite=intensite;
-            if (_intensite_max<_intensite) _intensite_max=_intensite;
+            if ((_intensite_max<_intensite) & (!accel) & (!decel) & (tempo_apres_acc==0)) 
+            {
+              _intensite_max=_intensite;
+              Serial.println(_intensite);
+            }
           }  
           while ( (!Fc_ouvert) & (Serial.available()==0) & !Fm_Ech );
           inByte = Serial.read();  // vide tampon 
@@ -1460,14 +1499,18 @@ void loop()
           tempo(20);
           consigne=rapide;
           proc_avance();
-          s=F("Mesure courant avance ");
+          s=F("Mesure courant max avance ");
           oled.setCursor(0,4);oled.println(s);oled.println(vide);
           Serial.println(s);
           do
           {
             traitement();  
             int _intensite=intensite;
-            if (_intensite_max<_intensite) _intensite_max=_intensite;
+            if ((_intensite_max<_intensite) & (!accel) & (!decel) & (tempo_apres_acc==0)) 
+            {
+              _intensite_max=_intensite;
+              Serial.println(_intensite);
+            }
           }  
           while ( (!Fc_ferme) & (Serial.available()==0) & !Fm_Ech );
           inByte = Serial.read();  // vide tampon 
@@ -1481,9 +1524,9 @@ void loop()
           s=F("courant max=");
           Serial.print(s);Serial.print(intensite_max);
           oled.setCursor(0,5);oled.print(s);oled.print(intensite_max); 
-          intensite_max=intensite_max+((intensite_max*20)/100);
+          intensite_max=intensite_max+((intensite_max*10)/100);
           if (intensite_max>4095) intensite_max=4095;
-          s=F(" +20%=");
+          s=F(" +10%=");
           Serial.print(s);Serial.println(intensite_max);
           oled.setCursor(0,6);oled.print(s);oled.print(intensite_max); 
           oled.setCursor(0,7);oled.print("Sauvegarde EPROM");
